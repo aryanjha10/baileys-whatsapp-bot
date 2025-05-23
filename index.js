@@ -106,7 +106,7 @@ function randomDelay(min = 1200, max = 2800) {
         const jid = req.params.number + "@s.whatsapp.net";
 
         // 📡 Fetch messages directly from WhatsApp (not from store)
-        const messages = await sock.fetchMessagesFromWA(jid, 20);
+        const messages = await sock.fetchMessageHistory(jid, 5);
 
         if (!messages || messages.length === 0) {
           console.log(`📭 No messages returned from WhatsApp for ${jid}`);
