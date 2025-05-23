@@ -103,21 +103,22 @@ function randomDelay(min = 1200, max = 2800) {
 
     // 2. Retrieve chat history
     app.get("/history/:number", async (req, res) => {
-      const jid = req.params.number + "@s.whatsapp.net";
-
-      // 🧠 Prevent failure if store is not ready yet
-      if (!store) {
-        return res.status(503).json({
-          error:
-            "Store not yet initialized. Please wait a few seconds and try again.",
-        });
-      }
-
       try {
-        // 📜 Load the last 20 messages for the chat
-        const messages = await store.loadMessages(jid, 20);
+        const jid = req.params.number + "@s.whatsapp.net";
 
-        // 🧾 Format the message history
+        if (!store || !store.loadMessages) {
+          console.error("❌ Store is not ready or loadMessages not available");
+          return res
+            .status(503)
+            .json({ error: "Message store not initialized" });
+        }
+
+        const messages = await store.loadMessages(jid, 20);
+        if (!messages || !messages.length) {
+          console.log(`📭 No messages found for ${jid}`);
+          return res.json({ history: [] });
+        }
+
         const history = messages.map((msg) => ({
           fromMe: msg.key.fromMe,
           text:
@@ -129,6 +130,7 @@ function randomDelay(min = 1200, max = 2800) {
 
         res.json({ history });
       } catch (err) {
+        console.error("🔥 Error in /history:", err.message);
         res.status(500).json({ error: err.message });
       }
     });
