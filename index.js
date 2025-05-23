@@ -9,6 +9,7 @@ const {
   fetchLatestBaileysVersion,
   DisconnectReason,
 } = require("@whiskeysockets/baileys");
+const { makeInMemoryStore } = require("@whiskeysockets/baileys");
 const axios = require("axios");
 const fs = require("fs");
 const P = require("pino");
@@ -25,6 +26,13 @@ function randomDelay(min = 1200, max = 2800) {
 (async () => {
   // Set up auth file to persist session
   const { state, saveCreds } = await useMultiFileAuthState("./auth");
+  const store = makeInMemoryStore({});
+  store.readFromFile("./store.json");
+
+  // Optional: Save store periodically to disk
+  setInterval(() => {
+    store.writeToFile("./store.json");
+  }, 10_000);
 
   const WEBHOOK_URL = "https://hook.integromat.com/your-make-url";
 
@@ -37,7 +45,7 @@ function randomDelay(min = 1200, max = 2800) {
       logger: P({ level: "silent" }),
       auth: state,
     });
-
+    store.bind(sock.ev);
     // 1. Send a message
 
     app.post("/send", async (req, res) => {
@@ -92,7 +100,7 @@ function randomDelay(min = 1200, max = 2800) {
       const jid = req.params.number + "@s.whatsapp.net";
 
       try {
-        const messages = await sock.store.loadMessages(jid, 20); // get last 20 messages
+        const messages = await store.loadMessages(jid, 20); // get last 20 messages
         const history = messages.map((msg) => ({
           fromMe: msg.key.fromMe,
           text:
