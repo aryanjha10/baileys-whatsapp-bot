@@ -40,7 +40,6 @@ function randomDelay(min = 1200, max = 2800) {
       logger: P({ level: "silent" }),
       auth: state,
     });
-    store = sock.store;
 
     sock.ev.process(async (events) => {
       if (events["connection.update"]) {
@@ -216,6 +215,8 @@ function randomDelay(min = 1200, max = 2800) {
         if (shouldReconnect) startBot();
       } else if (connection === "open") {
         console.log("✅ Connected to WhatsApp");
+        store = sock.store;
+        console.log("📁 Store is now available");
         replayQueuedMessages();
         replayOutgoingMessages(sock);
       }
