@@ -3,13 +3,15 @@ const app = express();
 app.use(express.json());
 
 const qrcode = require("qrcode-terminal");
-const makeWASocket = require("@whiskeysockets/baileys").default;
 const {
+  default: makeWASocket,
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
   DisconnectReason,
 } = require("@whiskeysockets/baileys");
-const { makeInMemoryStore } = require("@whiskeysockets/baileys");
+
+let store;
+
 const axios = require("axios");
 const fs = require("fs");
 const P = require("pino");
@@ -26,13 +28,6 @@ function randomDelay(min = 1200, max = 2800) {
 (async () => {
   // Set up auth file to persist session
   const { state, saveCreds } = await useMultiFileAuthState("./auth");
-  const store = makeInMemoryStore({});
-  store.readFromFile("./store.json");
-
-  // Optional: Save store periodically to disk
-  setInterval(() => {
-    store.writeToFile("./store.json");
-  }, 10_000);
 
   const WEBHOOK_URL = "https://hook.integromat.com/your-make-url";
 
@@ -45,7 +40,18 @@ function randomDelay(min = 1200, max = 2800) {
       logger: P({ level: "silent" }),
       auth: state,
     });
-    store.bind(sock.ev);
+    store = sock.store;
+
+    sock.ev.process(async (events) => {
+      if (events["connection.update"]) {
+        const update = events["connection.update"];
+        if (update.connection === "open") {
+          store = sock?.store;
+          console.log("📁 Store is now available");
+        }
+      }
+    });
+
     // 1. Send a message
 
     app.post("/send", async (req, res) => {
@@ -99,8 +105,19 @@ function randomDelay(min = 1200, max = 2800) {
     app.get("/history/:number", async (req, res) => {
       const jid = req.params.number + "@s.whatsapp.net";
 
+      // 🧠 Prevent failure if store is not ready yet
+      if (!store) {
+        return res.status(503).json({
+          error:
+            "Store not yet initialized. Please wait a few seconds and try again.",
+        });
+      }
+
       try {
-        const messages = await store.loadMessages(jid, 20); // get last 20 messages
+        // 📜 Load the last 20 messages for the chat
+        const messages = await store.loadMessages(jid, 20);
+
+        // 🧾 Format the message history
         const history = messages.map((msg) => ({
           fromMe: msg.key.fromMe,
           text:
@@ -109,6 +126,7 @@ function randomDelay(min = 1200, max = 2800) {
             "",
           timestamp: msg.messageTimestamp,
         }));
+
         res.json({ history });
       } catch (err) {
         res.status(500).json({ error: err.message });

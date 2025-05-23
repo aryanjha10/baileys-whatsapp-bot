@@ -14,6 +14,7 @@
     "@adiwajshing/keyed-db": "^0.2.4",
     "@whiskeysockets/baileys": "^6.7.17",
     "axios": "^1.9.0",
+    "baileys": "github:WhiskeySockets/Baileys",
     "express": "^5.1.0",
     "pino": "^9.7.0",
     "qrcode-terminal": "^0.12.0"
