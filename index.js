@@ -92,7 +92,7 @@ function randomDelay(min = 1200, max = 2800) {
       const jid = req.params.number + "@s.whatsapp.net";
 
       try {
-        const messages = await sock.loadMessages(jid, 20); // get last 20 messages
+        const messages = await sock.store.loadMessages(jid, 20); // get last 20 messages
         const history = messages.map((msg) => ({
           fromMe: msg.key.fromMe,
           text:
