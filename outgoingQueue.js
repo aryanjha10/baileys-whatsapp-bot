@@ -27,7 +27,8 @@ function clearQueue() {
 module.exports = {
   addToQueue,
   getQueuedMessages,
-  clearQueue
+  clearQueue,
+  saveQueue,
 };
 
 function loadQueue() {

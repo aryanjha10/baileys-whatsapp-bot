@@ -1,2 +1,5 @@
-auth.json
 node_modules/
+auth/
+*.json
+!package.json
+!package-lock.json
