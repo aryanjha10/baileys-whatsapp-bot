@@ -105,16 +105,11 @@ function randomDelay(min = 1200, max = 2800) {
       try {
         const jid = req.params.number + "@s.whatsapp.net";
 
-        if (!store || !store.loadMessages) {
-          console.error("❌ Store is not ready or loadMessages not available");
-          return res
-            .status(503)
-            .json({ error: "Message store not initialized" });
-        }
+        // 📡 Fetch messages directly from WhatsApp (not from store)
+        const messages = await sock.fetchMessagesFromWA(jid, 20);
 
-        const messages = await store.loadMessages(jid, 20);
-        if (!messages || !messages.length) {
-          console.log(`📭 No messages found for ${jid}`);
+        if (!messages || messages.length === 0) {
+          console.log(`📭 No messages returned from WhatsApp for ${jid}`);
           return res.json({ history: [] });
         }
 
