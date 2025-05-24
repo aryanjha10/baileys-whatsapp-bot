@@ -293,11 +293,17 @@ function randomDelay(min = 1200, max = 2800) {
       }
 
       if (connection === "close") {
-        const shouldReconnect =
-          lastDisconnect?.error?.output?.statusCode !==
-          DisconnectReason.loggedOut;
-        console.log("Connection closed. Reconnecting:", shouldReconnect);
-        if (shouldReconnect) startBot();
+        const statusCode = lastDisconnect?.error?.output?.statusCode;
+        const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+        console.log("Connection closed. Reconnecting:", !isLoggedOut);
+
+        if (isLoggedOut) {
+          console.log("🔐 Detected logout — removing auth folder");
+          fs.rmSync("./auth", { recursive: true, force: true });
+          startBot(); // Start fresh — will show QR
+        } else {
+          startBot();
+        }
       } else if (connection === "open") {
         console.log("✅ Connected to WhatsApp");
         store = sock.store;
