@@ -20,6 +20,14 @@ const { addToQueue, getQueuedMessages, clearQueue } = require("./queue");
 const outgoingQueue = require("./outgoingQueue");
 const { logSentMessage, getMessagesSentInLastHour } = require("./sentLog");
 
+function isDuplicateMessage(existingMessages, newMsg) {
+  return existingMessages.some(
+    (m) =>
+      m.key?.id === newMsg.key?.id &&
+      m.messageTimestamp === newMsg.messageTimestamp
+  );
+}
+
 //Random Delay for sending Messages
 function randomDelay(min = 1200, max = 2800) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -30,6 +38,19 @@ function randomDelay(min = 1200, max = 2800) {
   const { state, saveCreds } = await useMultiFileAuthState("./auth");
 
   const WEBHOOK_URL = "https://hook.integromat.com/your-make-url";
+
+  const AUTH_FOLDER = "./auth";
+  const STORE_FILE = "storeMessages.json";
+
+  // Check if auth folder exists but is empty → means fresh QR login
+  if (fs.existsSync(AUTH_FOLDER) && fs.readdirSync(AUTH_FOLDER).length === 0) {
+    console.log("🔐 Auth folder is empty — starting fresh QR login.");
+
+    if (fs.existsSync(STORE_FILE)) {
+      fs.writeFileSync(STORE_FILE, "{}"); // Clear store
+      console.log("🧹 storeMessages.json cleared.");
+    }
+  }
 
   async function startBot() {
     const { version, isLatest } = await fetchLatestBaileysVersion();
@@ -62,14 +83,15 @@ function randomDelay(min = 1200, max = 2800) {
           const jid = msg.key.remoteJid;
           if (!storeMessages[jid]) storeMessages[jid] = [];
 
-          storeMessages[jid].push(msg);
+          if (!isDuplicateMessage(storeMessages[jid], msg)) {
+            storeMessages[jid].push(msg);
+          }
 
           // Keep only the latest 50 messages
-          if (storeMessages[jid].length > 50) {
-            storeMessages[jid] = storeMessages[jid]
-              .sort((a, b) => b.messageTimestamp - a.messageTimestamp)
-              .slice(0, 50);
-          }
+
+          storeMessages[jid] = storeMessages[jid]
+            .sort((a, b) => b.messageTimestamp - a.messageTimestamp)
+            .slice(0, 50);
         }
         fs.writeFileSync(
           "storeMessages.json",
@@ -234,21 +256,22 @@ function randomDelay(min = 1200, max = 2800) {
       console.log(`📥 Message detected (fromMe: ${isFromMe}) —`, messageText);
       console.log("📞 Sender:", sender);
 
-      // ⏺️ Store and trim messages
+      // ⏺️ Store and trim messages with deduplication
       if (!storeMessages[sender]) storeMessages[sender] = [];
-      storeMessages[sender].push(msg);
 
-      if (storeMessages[sender].length > 50) {
+      if (!isDuplicateMessage(storeMessages[sender], msg)) {
+        storeMessages[sender].push(msg);
+
         storeMessages[sender] = storeMessages[sender]
           .sort((a, b) => b.messageTimestamp - a.messageTimestamp)
           .slice(0, 50); // Keep 50 newest
-      }
 
-      fs.writeFileSync(
-        "storeMessages.json",
-        JSON.stringify(storeMessages, null, 2)
-      );
-      console.log("💾 Disk updated — storeMessages.json saved");
+        fs.writeFileSync(
+          "storeMessages.json",
+          JSON.stringify(storeMessages, null, 2)
+        );
+        console.log("💾 Disk updated — storeMessages.json saved");
+      }
 
       // 🕓 Format timestamp
       const formattedTime = new Intl.DateTimeFormat("en-GB", {
@@ -266,7 +289,7 @@ function randomDelay(min = 1200, max = 2800) {
         timestamp: formattedTime,
       };
 
-      // Only send webhook if NOT from you
+      // ✅ Only send webhook if NOT from you
       if (!isFromMe) {
         console.log("🕓 UK Working Hours:", isWithinWorkingHours());
         if (isWithinWorkingHours()) {
