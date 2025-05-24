@@ -10,7 +10,7 @@ const {
   DisconnectReason,
 } = require("@whiskeysockets/baileys");
 
-let store;
+const storeMessages = {};
 
 const axios = require("axios");
 const fs = require("fs");
@@ -39,7 +39,28 @@ function randomDelay(min = 1200, max = 2800) {
       version,
       logger: P({ level: "silent" }),
       auth: state,
+      browser: ["Baileys", "MacOS", "Desktop"], // 👈 Emulate Desktop
+      syncFullHistory: true, // 👈 Enable full history sync
     });
+
+    //Store Message History
+    sock.ev.on(
+      "messaging-history.set",
+      ({ chats, contacts, messages, syncType }) => {
+        console.log("🕓 History Sync received:", {
+          chats: chats.length,
+          contacts: contacts.length,
+          messages: messages.length,
+          syncType,
+        });
+
+        for (const msg of messages) {
+          const jid = msg.key.remoteJid;
+          if (!storeMessages[jid]) storeMessages[jid] = [];
+          storeMessages[jid].push(msg);
+        }
+      }
+    );
 
     sock.ev.process(async (events) => {
       if (events["connection.update"]) {
@@ -105,12 +126,10 @@ function randomDelay(min = 1200, max = 2800) {
       try {
         const jid = req.params.number + "@s.whatsapp.net";
 
-        // 📡 Fetch messages directly from WhatsApp (not from store)
-        const messages = await sock.fetchMessageHistory(jid, 5);
-        console.log("📥 Raw fetchMessageHistory result:", messages);
+        const messages = storeMessages[jid];
 
         if (!messages || messages.length === 0) {
-          console.log(`📭 No messages returned from WhatsApp for ${jid}`);
+          console.log(`📭 No messages found for ${jid}`);
           return res.json({ history: [] });
         }
 
