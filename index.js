@@ -10,7 +10,7 @@ const {
   DisconnectReason,
 } = require("@whiskeysockets/baileys");
 
-const storeMessages = {};
+let storeMessages = {};
 
 const axios = require("axios");
 const fs = require("fs");
