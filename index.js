@@ -35,6 +35,10 @@ function randomDelay(min = 1200, max = 2800) {
     const { version, isLatest } = await fetchLatestBaileysVersion();
     console.log(`Using WA version: ${version}, is latest: ${isLatest}`);
 
+    if (fs.existsSync("storeMessages.json")) {
+      storeMessages = JSON.parse(fs.readFileSync("storeMessages.json", "utf8"));
+    }
+
     const sock = makeWASocket({
       version,
       logger: P({ level: "silent" }),
@@ -66,6 +70,12 @@ function randomDelay(min = 1200, max = 2800) {
               .slice(-50)
               .sort((a, b) => b.messageTimestamp - a.messageTimestamp);
           }
+
+          fs.writeFileSync(
+            "storeMessages.json",
+            JSON.stringify(storeMessages, null, 2)
+          );
+          console.log("💾 Disk updated — storeMessages.json saved from sync");
         }
       }
     );
@@ -205,33 +215,43 @@ function randomDelay(min = 1200, max = 2800) {
 
     sock.ev.on("messages.upsert", async ({ messages }) => {
       const msg = messages[0];
+      const sender = msg.key.remoteJid;
+
+      // Ignore irrelevant messages
       if (
         !msg.message ||
-        msg.key.fromMe ||
-        msg.key.remoteJid === "status@broadcast" ||
+        sender === "status@broadcast" ||
         !(msg.message.conversation || msg.message?.extendedTextMessage?.text)
       )
         return;
 
-      const sender = msg.key.remoteJid;
       const messageText =
         msg.message.conversation ||
         msg.message?.extendedTextMessage?.text ||
         "";
 
-      console.log("💬 Incoming message:", messageText);
-      console.log("📞 From:", sender);
-      console.log("🕓 UK Working Hours:", isWithinWorkingHours());
+      const isFromMe = msg.key.fromMe;
+
+      console.log(`📥 Message detected (fromMe: ${isFromMe}) —`, messageText);
+      console.log("📞 Sender:", sender);
 
       // ⏺️ Store and trim messages
       if (!storeMessages[sender]) storeMessages[sender] = [];
       storeMessages[sender].push(msg);
+
       if (storeMessages[sender].length > 50) {
         storeMessages[sender] = storeMessages[sender]
-          .sort((a, b) => b.messageTimestamp - a.messageTimestamp) // Newest first
-          .slice(0, 50); // Keep top 50 newest
+          .sort((a, b) => b.messageTimestamp - a.messageTimestamp)
+          .slice(0, 50); // Keep 50 newest
       }
 
+      fs.writeFileSync(
+        "storeMessages.json",
+        JSON.stringify(storeMessages, null, 2)
+      );
+      console.log("💾 Disk updated — storeMessages.json saved");
+
+      // 🕓 Format timestamp
       const formattedTime = new Intl.DateTimeFormat("en-GB", {
         day: "numeric",
         month: "short",
@@ -247,16 +267,20 @@ function randomDelay(min = 1200, max = 2800) {
         timestamp: formattedTime,
       };
 
-      if (isWithinWorkingHours()) {
-        try {
-          await axios.post(WEBHOOK_URL, payload);
-          console.log(`✅ Webhook sent: ${messageText}`);
-        } catch (err) {
-          console.error("❌ Webhook error:", err.message);
+      // Only send webhook if NOT from you
+      if (!isFromMe) {
+        console.log("🕓 UK Working Hours:", isWithinWorkingHours());
+        if (isWithinWorkingHours()) {
+          try {
+            await axios.post(WEBHOOK_URL, payload);
+            console.log(`✅ Webhook sent: ${messageText}`);
+          } catch (err) {
+            console.error("❌ Webhook error:", err.message);
+          }
+        } else {
+          addToQueue(payload);
+          console.log(`📥 Message queued from ${payload.number}`);
         }
-      } else {
-        addToQueue(payload);
-        console.log(`📥 Message queued from ${payload.number}`);
       }
     });
 
