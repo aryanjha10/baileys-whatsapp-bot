@@ -39,7 +39,7 @@ function randomDelay(min = 1200, max = 2800) {
       version,
       logger: P({ level: "silent" }),
       auth: state,
-      browser: ["Baileys", "MacOS", "Desktop"], // 👈 Emulate Desktop
+      browser: ["Qasim", "MacOS", "Desktop"], // 👈 Emulate Desktop
       syncFullHistory: true, // 👈 Enable full history sync
     });
 
@@ -57,7 +57,15 @@ function randomDelay(min = 1200, max = 2800) {
         for (const msg of messages) {
           const jid = msg.key.remoteJid;
           if (!storeMessages[jid]) storeMessages[jid] = [];
+
           storeMessages[jid].push(msg);
+
+          // Keep only the latest 50 messages
+          if (storeMessages[jid].length > 50) {
+            storeMessages[jid] = storeMessages[jid]
+              .slice(-50)
+              .sort((a, b) => b.messageTimestamp - a.messageTimestamp);
+          }
         }
       }
     );
@@ -69,6 +77,34 @@ function randomDelay(min = 1200, max = 2800) {
           store = sock?.store;
           console.log("📁 Store is now available");
         }
+      }
+    });
+
+    // Check if number exists on WhatsApp
+    app.get("/check/:number", async (req, res) => {
+      const number = req.params.number;
+      const jid = number + "@s.whatsapp.net";
+
+      try {
+        // 🕒 Add a 5-second delay before checking
+        await delay(5000);
+
+        const result = await sock.onWhatsApp(number);
+
+        if (result?.length && result[0].exists) {
+          return res.json({
+            exists: true,
+            jid: result[0].jid,
+          });
+        } else {
+          return res.json({
+            exists: false,
+            reason: "Number not found on WhatsApp",
+          });
+        }
+      } catch (err) {
+        console.error("❌ WhatsApp check error:", err.message);
+        res.status(500).json({ error: err.message });
       }
     });
 
@@ -182,9 +218,19 @@ function randomDelay(min = 1200, max = 2800) {
         msg.message.conversation ||
         msg.message?.extendedTextMessage?.text ||
         "";
+
       console.log("💬 Incoming message:", messageText);
       console.log("📞 From:", sender);
       console.log("🕓 UK Working Hours:", isWithinWorkingHours());
+
+      // ⏺️ Store and trim messages
+      if (!storeMessages[sender]) storeMessages[sender] = [];
+      storeMessages[sender].push(msg);
+      if (storeMessages[sender].length > 50) {
+        storeMessages[sender] = storeMessages[sender]
+          .sort((a, b) => b.messageTimestamp - a.messageTimestamp) // Newest first
+          .slice(0, 50); // Keep top 50 newest
+      }
 
       const formattedTime = new Intl.DateTimeFormat("en-GB", {
         day: "numeric",
@@ -204,13 +250,13 @@ function randomDelay(min = 1200, max = 2800) {
       if (isWithinWorkingHours()) {
         try {
           await axios.post(WEBHOOK_URL, payload);
-          console.log(`Webhook sent: ${messageText}`);
+          console.log(`✅ Webhook sent: ${messageText}`);
         } catch (err) {
-          console.error("Webhook error:", err.message);
+          console.error("❌ Webhook error:", err.message);
         }
       } else {
         addToQueue(payload);
-        console.log(`Message queued from ${payload.number}`);
+        console.log(`📥 Message queued from ${payload.number}`);
       }
     });
 
