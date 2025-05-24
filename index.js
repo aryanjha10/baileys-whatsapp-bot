@@ -300,7 +300,9 @@ function randomDelay(min = 1200, max = 2800) {
         if (isLoggedOut) {
           console.log("🔐 Detected logout — removing auth folder");
           fs.rmSync("./auth", { recursive: true, force: true });
-          startBot(); // Start fresh — will show QR
+
+          console.log("🛑 Bot exited. Please restart to scan a new QR.");
+          process.exit(0); // 🛑 Stop the process — user should manually restart
         } else {
           startBot();
         }
