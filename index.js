@@ -70,13 +70,12 @@ function randomDelay(min = 1200, max = 2800) {
               .slice(-50)
               .sort((a, b) => b.messageTimestamp - a.messageTimestamp);
           }
-
-          fs.writeFileSync(
-            "storeMessages.json",
-            JSON.stringify(storeMessages, null, 2)
-          );
-          console.log("💾 Disk updated — storeMessages.json saved from sync");
         }
+        fs.writeFileSync(
+          "storeMessages.json",
+          JSON.stringify(storeMessages, null, 2)
+        );
+        console.log("💾 Disk updated — storeMessages.json saved from sync");
       }
     );
 
