@@ -67,8 +67,8 @@ function randomDelay(min = 1200, max = 2800) {
           // Keep only the latest 50 messages
           if (storeMessages[jid].length > 50) {
             storeMessages[jid] = storeMessages[jid]
-              .slice(0, 50)
-              .sort((a, b) => b.messageTimestamp - a.messageTimestamp);
+              .sort((a, b) => b.messageTimestamp - a.messageTimestamp)
+              .slice(0, 50);
           }
         }
         fs.writeFileSync(
