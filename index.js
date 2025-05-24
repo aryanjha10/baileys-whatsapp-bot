@@ -67,7 +67,7 @@ function randomDelay(min = 1200, max = 2800) {
           // Keep only the latest 50 messages
           if (storeMessages[jid].length > 50) {
             storeMessages[jid] = storeMessages[jid]
-              .slice(-50)
+              .slice(0, 50)
               .sort((a, b) => b.messageTimestamp - a.messageTimestamp);
           }
         }
@@ -294,15 +294,23 @@ function randomDelay(min = 1200, max = 2800) {
       if (connection === "close") {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
         const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+
         console.log("Connection closed. Reconnecting:", !isLoggedOut);
 
         if (isLoggedOut) {
+          // ✅ User has logged out from WhatsApp
           console.log("🔐 Detected logout — removing auth folder");
-          fs.rmSync("./auth", { recursive: true, force: true });
+          fs.rmSync("./auth", { recursive: true, force: true }); // Remove saved credentials
 
+          // ✅ Clear message history to avoid duplication on re-sync
+          console.log("🧹 Clearing storeMessages.json...");
+          fs.writeFileSync("storeMessages.json", "{}"); // Reset file to empty object
+
+          // ✅ Stop bot to allow clean QR re-scan
           console.log("🛑 Bot exited. Please restart to scan a new QR.");
-          process.exit(0); // 🛑 Stop the process — user should manually restart
+          process.exit(0); // Exit process — user must restart manually
         } else {
+          // 🔁 Auto-reconnect on non-logout disconnections
           startBot();
         }
       } else if (connection === "open") {
