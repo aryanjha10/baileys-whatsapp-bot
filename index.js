@@ -37,7 +37,8 @@ function randomDelay(min = 1200, max = 2800) {
   // Set up auth file to persist session
   const { state, saveCreds } = await useMultiFileAuthState("./auth");
 
-  const WEBHOOK_URL = "https://hook.integromat.com/your-make-url";
+  const WEBHOOK_URL =
+    "https://hook.eu2.make.com/b4wtmq9wqwy6o3fsgthoripggh7wzk7s";
 
   const AUTH_FOLDER = "./auth";
   const STORE_FILE = "storeMessages.json";
@@ -369,7 +370,7 @@ function randomDelay(min = 1200, max = 2800) {
     }
 
     const OUTGOING_WEBHOOK_URL =
-      "https://hook.integromat.com/your-outgoing-tracking-url";
+      "https://hook.eu2.make.com/tkcg44hwotdd9vlhuubldr9h5d19hb2n";
 
     async function replayOutgoingMessages(sock) {
       // Load all queued messages
